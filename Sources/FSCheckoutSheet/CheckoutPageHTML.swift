@@ -6,11 +6,19 @@
 
 import struct Foundation.URL
 
-fileprivate let FSBuilderVersion = "0.8.3"
+//fileprivate let FSBuilderVersion = "0.8.3"
+//fileprivate let FastSpringBuilderURL =
+//  URL(string: "https://d1f8f9xcsvx3ha.cloudfront.net/sbl/"
+//            + FSBuilderVersion
+//            + "/fastspring-builder.min.js")!
+
+fileprivate let FSBuilderVersion = "1.0.1"
 fileprivate let FastSpringBuilderURL =
-  URL(string: "https://d1f8f9xcsvx3ha.cloudfront.net/sbl/"
-            + FSBuilderVersion
-            + "/fastspring-builder.min.js")!
+  URL(string: "https://sbl.onfastspring.com/sbl/"
+			+ FSBuilderVersion
+			+ "/fastspring-builder.min.js")!
+
+// https://sbl.onfastspring.com/sbl/1.0.1/fastspring-builder.min.js
 
 /**
  * Generate the HTML for the FastSpring checkout page.

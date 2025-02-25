@@ -63,8 +63,8 @@ public final class FastSpringCheckoutVC: NSViewController {
   public func checkoutProduct(_ productPath: String, quantity: Int = 1,
                               in storeFront: String,
                               yield : @escaping
-                                ( _ licenseKeys: [ LicenseKey ] ) -> Void)
-              -> Self
+                              ( _ licenseKeys: Result<[ LicenseKey ], Error> ) -> Void)
+  -> Self
   {
     assert(callback == nil, "callback already set!")
     callback = yield
@@ -102,14 +102,16 @@ public final class FastSpringCheckoutVC: NSViewController {
   }
   public override func viewDidDisappear() {
     super.viewDidDisappear()
-    emit([])
+    emit(.success([]))
   }
   
-  private var callback : (( _ licenseKeys: [ LicenseKey ] ) -> Void)?
+  private var callback : (( _ licenseKeys: Result<[ LicenseKey ], Error> ) -> Void)?
   
-  private func emit(_ keys: [ LicenseKey ]) {
+  private func emit(_ keys: Result<[ LicenseKey ], Error>) {
     guard let cb = callback else { return }
-    callback = nil
+    if case .success = keys {
+      callback = nil
+    }
     cb(keys)
   }
   
@@ -120,7 +122,7 @@ public final class FastSpringCheckoutVC: NSViewController {
     spinner.isDisplayedWhenStopped = false
     return spinner
   }()
-
+  
   public override func loadView() {
     let config : WKWebViewConfiguration = {
       let prefs = WKPreferences()
@@ -141,7 +143,7 @@ public final class FastSpringCheckoutVC: NSViewController {
       config.preferences = prefs
       config.allowsAirPlayForMediaPlayback  = false
       config.suppressesIncrementalRendering = true
-          
+      
       config.userContentController = controller
       return config
     }()
@@ -158,7 +160,7 @@ public final class FastSpringCheckoutVC: NSViewController {
     buttonStack.orientation = .horizontal
     buttonStack.alignment   = .firstBaseline
     buttonStack.edgeInsets  =
-      NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+    NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
     
     let sep = NSBox(frame: .zero)
     sep.boxType = .separator
@@ -187,7 +189,64 @@ public final class FastSpringCheckoutVC: NSViewController {
     ])
   }
   
+  struct ViewData: Codable {
+    let debtorName: String?
+    let order: Order
+  }
+  
+  struct Order: Codable {
+    let groups: [Group]
+  }
+  
+  struct Group: Codable {
+    let items: [Item]
+  }
+  
+  struct Item: Codable {
+    let fulfillment: Fulfillment?
+  }
+  
+  struct Fulfillment: Codable {
+    let licenses: [License]
+  }
+  
+  struct License: Codable {
+    let code: String
+  }
+  
+  public static func parseScriptResult(_ anyJSON: Any) throws -> [LicenseKey]? {
+    guard let jsonString = anyJSON as? String else {
+      throw NSError(description: "JSON not a string")
+    }
+    guard let jsonData = jsonString.data(using: .utf8) else {
+      throw NSError(description: "Coludn't create JSON data")
+    }
+    let jsonDecoder = JSONDecoder()
+    let viewData = try jsonDecoder.decode(ViewData.self, from: jsonData)
+    guard let name = viewData.debtorName else {
+      return nil
+    }
+    let licenseKeys = viewData.order.groups.flatMap { group in
+      group.items.flatMap { item in
+        (item.fulfillment?.licenses ?? []).map { license in
+          LicenseKey(sku: "", name: name, code: license.code)
+        }
+      }
+    }
+    return licenseKeys
+  }
+  
   fileprivate func handleScriptResult(_ anyJSON: Any) {
+    do {
+      if let licenseKeys = try Self.parseScriptResult(anyJSON) {
+        emit(.success(licenseKeys))
+      }
+    } catch {
+      emit(.failure(error))
+    }
+  }
+  
+  fileprivate func handleScriptResult_old(_ anyJSON: Any) {
     guard let licensesJSON = anyJSON as? [ [ String: Any ] ] else {
       print("FSCheckout: could not decode JSON:", anyJSON)
       return
@@ -212,7 +271,7 @@ public final class FastSpringCheckoutVC: NSViewController {
     }
     
     if !licenses.isEmpty {
-      emit(licenses)
+      emit(.success(licenses))
       dismiss()
     }
   }
@@ -234,11 +293,11 @@ extension FastSpringCheckoutVC: WKNavigationDelegate {
     guard let url = webView?.url else { return true }
     return url.absoluteString == "about:blank"
   }
-
+  
   public func webView(_ webView: WKWebView, didFinish n: WKNavigation!) {
     if !isBlank() { spinner.stopAnimation(nil) }
   }
-
+  
   public func webView(_ webView: WKWebView, didFail n: WKNavigation!,
                       withError error: Error)
   {
@@ -246,6 +305,12 @@ extension FastSpringCheckoutVC: WKNavigationDelegate {
     print("FSCheckout: failed nav:", error,
           webView.url?.absoluteString ?? "")
     spinner.stopAnimation(nil)
+  }
+  
+  public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+#warning("Need to allow links to external sites to open in Safari")
+    print("FSCheckout: navigation to \(navigationAction)")
+    return .allow
   }
 }
 
@@ -260,7 +325,7 @@ extension FastSpringCheckoutVC: WKScriptMessageHandler {
 }
 
 fileprivate extension WKWebView {
-
+  
   /**
    * Load the FastSpring checkout page into the WKWebView.
    *
@@ -279,6 +344,12 @@ fileprivate extension WKWebView {
     let page = CheckoutPageHTML(for: storeFront, productPath: productPath,
                                 quantity: quantity)
     loadHTMLString(page, baseURL: nil) // no base URL to distinguish this
+  }
+}
+
+private extension NSError {
+  convenience init(description: String) {
+    self.init(domain: NSCocoaErrorDomain, code: -1, userInfo: [NSLocalizedDescriptionKey: description])
   }
 }
 
