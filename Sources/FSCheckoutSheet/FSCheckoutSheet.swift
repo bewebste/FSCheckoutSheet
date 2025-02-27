@@ -98,7 +98,7 @@ public final class FastSpringCheckoutVC: NSViewController {
   
   public override func viewWillAppear() {
     super.viewWillAppear()
-    spinner.startAnimation(nil)
+	  self.showLoadingProgress = true
   }
   public override func viewDidDisappear() {
     super.viewDidDisappear()
@@ -119,75 +119,96 @@ public final class FastSpringCheckoutVC: NSViewController {
     let spinner = NSProgressIndicator()
     spinner.translatesAutoresizingMaskIntoConstraints = false
     spinner.style = .spinning
+	  spinner.controlSize = .small
     spinner.isDisplayedWhenStopped = false
     return spinner
   }()
+	
+	private let loadingLabel: NSTextField = {
+		let label = NSTextField(labelWithString: NSLocalizedString("Loading…", comment: "Store web view loading label"))
+		return label
+	}()
+	
+	private var showLoadingProgress: Bool = false {
+		didSet {
+			if showLoadingProgress {
+				self.spinner.startAnimation(nil)
+				self.loadingLabel.isHidden = false
+			} else {
+				self.spinner.stopAnimation(nil)
+				self.loadingLabel.isHidden = true
+			}
+		}
+	}
   
-  public override func loadView() {
-    let config : WKWebViewConfiguration = {
-      let prefs = WKPreferences()
-      prefs.javaScriptCanOpenWindowsAutomatically = true
-      prefs.javaScriptEnabled = true
-      prefs.javaEnabled       = false
-      prefs.plugInsEnabled    = false
-      
-      let controller = WKUserContentController()
-      controller.addUserScript(
-        WKUserScript(source           : FindLicenseJavaScript,
-                     injectionTime    : .atDocumentStart,
-                     forMainFrameOnly : true)
-      )
-      controller.add(self, name: "zz")
-      
-      let config = WKWebViewConfiguration()
-      config.preferences = prefs
-      config.allowsAirPlayForMediaPlayback  = false
-      config.suppressesIncrementalRendering = true
-      
-      config.userContentController = controller
-      return config
-    }()
-    
-    let webView = WKWebView(frame: .zero, configuration: config)
-    webView.translatesAutoresizingMaskIntoConstraints = true
-    webView.autoresizingMask   = [.width, .height]
-    webView.navigationDelegate = self
-    
-    let buttonStack = NSStackView(views: [
-      NSButton(title  : "Dismiss", // TODO: Loc
-               target : nil, action: #selector(cancelOperation(_:)))
-    ])
-    buttonStack.orientation = .horizontal
-    buttonStack.alignment   = .firstBaseline
-    buttonStack.edgeInsets  =
-    NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-    
-    let sep = NSBox(frame: .zero)
-    sep.boxType = .separator
-    
-    let pageStack = NSStackView(views: [ webView, sep, buttonStack ])
-    pageStack.orientation = .vertical
-    pageStack.alignment   = .width
-    pageStack.spacing     = 0
-    
-    pageStack.addSubview(spinner)
-    
-    self.webView = webView
-    self.view    = pageStack
-    
-    let hc = view.widthAnchor .constraint(equalToConstant: 1024)
-    let wc = view.heightAnchor.constraint(equalToConstant: 768)
-    
-    NSLayoutConstraint.activate([
-      wc, hc,
-      view.widthAnchor .constraint(greaterThanOrEqualToConstant: 800),
-      view.heightAnchor.constraint(greaterThanOrEqualToConstant: 400),
-      sep .heightAnchor.constraint(equalToConstant: 1),
-      
-      spinner.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-      spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-    ])
-  }
+	public override func loadView() {
+		let config : WKWebViewConfiguration = {
+			let prefs = WKPreferences()
+			prefs.javaScriptCanOpenWindowsAutomatically = true
+			prefs.javaScriptEnabled = true
+			prefs.javaEnabled       = false
+			prefs.plugInsEnabled    = false
+			
+			let controller = WKUserContentController()
+			controller.addUserScript(
+				WKUserScript(source           : FindLicenseJavaScript,
+							 injectionTime    : .atDocumentStart,
+							 forMainFrameOnly : true)
+			)
+			controller.add(self, name: "zz")
+			
+			let config = WKWebViewConfiguration()
+			config.preferences = prefs
+			config.allowsAirPlayForMediaPlayback  = false
+			config.suppressesIncrementalRendering = true
+			
+			config.userContentController = controller
+			return config
+		}()
+		
+		let webView = WKWebView(frame: .zero, configuration: config)
+		webView.translatesAutoresizingMaskIntoConstraints = true
+		webView.autoresizingMask   = [.width, .height]
+		webView.navigationDelegate = self
+		
+		let buttonStack = NSStackView()
+		buttonStack.orientation = .horizontal
+		buttonStack.distribution = .gravityAreas
+		buttonStack.alignment   = .centerY
+		buttonStack.detachesHiddenViews = true
+		buttonStack.edgeInsets  =
+		NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+		let button = NSButton(title  : "Dismiss", // TODO: Loc
+							  target : nil, action: #selector(cancelOperation(_:)))
+		buttonStack.addView(button, in: .trailing)
+		buttonStack.addView(loadingLabel, in: .leading)
+		buttonStack.addView(spinner, in: .leading)
+		
+		let sep = NSBox(frame: .zero)
+		sep.boxType = .separator
+		
+		let pageStack = NSStackView(views: [ webView, sep, buttonStack ])
+		pageStack.orientation = .vertical
+		pageStack.alignment   = .width
+		pageStack.spacing     = 0
+		
+		self.webView = webView
+		self.view    = pageStack
+		
+		let hc = view.widthAnchor .constraint(equalToConstant: 1024)
+		let wc = view.heightAnchor.constraint(equalToConstant: 768)
+		
+		NSLayoutConstraint.activate([
+			wc, hc,
+			view.widthAnchor .constraint(greaterThanOrEqualToConstant: 800),
+			view.heightAnchor.constraint(greaterThanOrEqualToConstant: 400),
+			sep .heightAnchor.constraint(equalToConstant: 1),
+			buttonStack.widthAnchor.constraint(equalTo: pageStack.widthAnchor, multiplier: 1.0)
+			
+			//      spinner.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+			//      spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+		])
+	}
   
   struct ViewData: Codable {
     let debtorName: String?
@@ -286,7 +307,7 @@ extension FastSpringCheckoutVC: WKNavigationDelegate {
   {
     // TODO: show error, and link to webstore
     print("FSCheckout: failed prov nav:", error, navigation as Any)
-    spinner.stopAnimation(nil)
+	  self.showLoadingProgress = false
   }
   
   private func isBlank() -> Bool {
@@ -295,7 +316,7 @@ extension FastSpringCheckoutVC: WKNavigationDelegate {
   }
   
   public func webView(_ webView: WKWebView, didFinish n: WKNavigation!) {
-    if !isBlank() { spinner.stopAnimation(nil) }
+	  if !isBlank() { self.showLoadingProgress = false }
   }
   
   public func webView(_ webView: WKWebView, didFail n: WKNavigation!,
@@ -304,13 +325,16 @@ extension FastSpringCheckoutVC: WKNavigationDelegate {
     // TODO: show error?
     print("FSCheckout: failed nav:", error,
           webView.url?.absoluteString ?? "")
-    spinner.stopAnimation(nil)
+	  self.showLoadingProgress = false
   }
   
   public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-#warning("Need to allow links to external sites to open in Safari")
-    print("FSCheckout: navigation to \(navigationAction)")
-    return .allow
+//    print("FSCheckout: navigation to \(navigationAction)")
+	  if let url = navigationAction.request.url,
+		 ["fastspring.com", "www.fastspring.com"].contains(url.host ?? "") {
+		  NSWorkspace.shared.open(url)
+	  }
+	  return .allow
   }
 }
 
