@@ -330,8 +330,8 @@ extension FastSpringCheckoutVC: WKNavigationDelegate {
   
   public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
 //    print("FSCheckout: navigation to \(navigationAction)")
-	  if let url = navigationAction.request.url,
-		 ["fastspring.com", "www.fastspring.com"].contains(url.host ?? "") {
+	  //Open links to things like privacy policy, invoice, etc. in web browser
+	  if let url = navigationAction.request.url, navigationAction.targetFrame == nil {
 		  NSWorkspace.shared.open(url)
 	  }
 	  return .allow
