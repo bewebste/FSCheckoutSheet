@@ -53,6 +53,8 @@ public final class FastSpringCheckoutVC: NSViewController {
    * - Parameter productPath: The (internal) name of the product, e.g. "soy-for-community-slacks"
    * - Parameter quantity: The product quantity to preconfigure (defaults to 1)
    * - Parameter storeFront: The name of the storefront, e.g. "zeezide.onfastspring.com"
+   * - Parameter webLink: An optional link that will be displayed at the bottom of the window
+   *     allowing the user to make the purchase in a web browser instead. 
    * - Parameter yield:
    *     A closure called to be called when the sheet is closed,
    *     containing the licenses keys the customer bought.
@@ -62,6 +64,7 @@ public final class FastSpringCheckoutVC: NSViewController {
   @discardableResult
   public func checkoutProduct(_ productPath: String, quantity: Int = 1,
                               in storeFront: String,
+							  webLink: URL? = nil,
                               yield : @escaping
                               ( _ licenseKeys: Result<[ LicenseKey ], Error> ) -> Void)
   -> Self
@@ -72,6 +75,7 @@ public final class FastSpringCheckoutVC: NSViewController {
     _ = view // make sure it is loaded!
     
     assert(webView != nil)
+	  self.updateWebLink(webLink)
     webView?.loadFastSpringCheckout(for: storeFront, productPath: productPath,
                                     quantity: quantity)
     return self
@@ -123,6 +127,27 @@ public final class FastSpringCheckoutVC: NSViewController {
     spinner.isDisplayedWhenStopped = false
     return spinner
   }()
+	
+	private let webLink: NSTextField = {
+		let webLink = NSTextField(labelWithString: String(localized: "Purchase on website", comment: "Purchase on website link"))
+		webLink.isSelectable = true
+		webLink.allowsEditingTextAttributes = true
+		webLink.isHidden = true
+		return webLink
+	}()
+	
+	private func updateWebLink(_ url: URL?) {
+		if let url {
+			let mutableAttrString = NSMutableAttributedString(attributedString: self.webLink.attributedStringValue)
+			let urlAttributes: [NSAttributedString.Key:Any] = [.link: url,
+															   .foregroundColor: NSColor.linkColor]
+			mutableAttrString.addAttributes(urlAttributes, range: NSMakeRange(0, mutableAttrString.string.count))
+			webLink.attributedStringValue = mutableAttrString
+			self.webLink.isHidden = false
+		} else {
+			self.webLink.isHidden = true
+		}
+	}
 	
 	private let loadingLabel: NSTextField = {
 		let label = NSTextField(labelWithString: NSLocalizedString("Loading…", comment: "Store web view loading label"))
@@ -182,6 +207,7 @@ public final class FastSpringCheckoutVC: NSViewController {
 							  target : nil, action: #selector(cancelOperation(_:)))
 		buttonStack.addView(button, in: .trailing)
 		buttonStack.addView(loadingLabel, in: .leading)
+		buttonStack.addView(webLink, in: .center)
 		buttonStack.addView(spinner, in: .leading)
 		
 		let sep = NSBox(frame: .zero)
