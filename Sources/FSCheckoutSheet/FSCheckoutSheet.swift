@@ -203,12 +203,9 @@ public final class FastSpringCheckoutVC: NSViewController {
 		buttonStack.detachesHiddenViews = true
 		buttonStack.edgeInsets  =
 		NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-		let button = NSButton(title  : "Dismiss", // TODO: Loc
-							  target : nil, action: #selector(cancelOperation(_:)))
-		buttonStack.addView(button, in: .trailing)
 		buttonStack.addView(loadingLabel, in: .leading)
-		buttonStack.addView(webLink, in: .center)
 		buttonStack.addView(spinner, in: .leading)
+		buttonStack.addView(webLink, in: .center)
 		
 		let sep = NSBox(frame: .zero)
 		sep.boxType = .separator
