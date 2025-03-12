@@ -154,7 +154,7 @@ public final class FastSpringCheckoutVC: NSViewController {
 		return label
 	}()
 	
-	private var showLoadingProgress: Bool = false {
+	@objc public private(set) dynamic var showLoadingProgress: Bool = false {
 		didSet {
 			if showLoadingProgress {
 				self.spinner.startAnimation(nil)
