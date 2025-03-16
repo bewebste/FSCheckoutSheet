@@ -168,11 +168,8 @@ public final class FastSpringCheckoutVC: NSViewController {
   
 	public override func loadView() {
 		let config : WKWebViewConfiguration = {
-			let prefs = WKPreferences()
-			prefs.javaScriptCanOpenWindowsAutomatically = true
-			prefs.javaScriptEnabled = true
-			prefs.javaEnabled       = false
-			prefs.plugInsEnabled    = false
+			let prefs2 = WKWebpagePreferences()
+			prefs2.allowsContentJavaScript = true
 			
 			let controller = WKUserContentController()
 			controller.addUserScript(
@@ -183,7 +180,7 @@ public final class FastSpringCheckoutVC: NSViewController {
 			controller.add(self, name: "zz")
 			
 			let config = WKWebViewConfiguration()
-			config.preferences = prefs
+			config.defaultWebpagePreferences = prefs2
 			config.allowsAirPlayForMediaPlayback  = false
 			config.suppressesIncrementalRendering = true
 			
